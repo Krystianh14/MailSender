@@ -30,12 +30,21 @@ public class ClientApplicationService
             );
         }
 
-        var existingApp = await _clientApplicationRepository.GetByAppIdAsync(request.AppId);
+        var existingByAppId = await _clientApplicationRepository.GetByAppIdAsync(request.AppId);
 
-        if (existingApp is not null)
+        if (existingByAppId is not null)
         {
             return ServiceResult<RegisterClientAppResponse>.Failure(
-                "Client app with this AppId already exists."
+                $"client app duplication. Existing {existingByAppId.AppId} {existingByAppId.AppName}"
+            );
+        }
+
+        var existingByAppName = await _clientApplicationRepository.GetByAppNameAsync(request.AppName);
+
+        if (existingByAppName is not null)
+        {
+            return ServiceResult<RegisterClientAppResponse>.Failure(
+                $"client app duplication. Existing {existingByAppName.AppId} {existingByAppName.AppName}"
             );
         }
 
