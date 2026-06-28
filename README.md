@@ -236,7 +236,7 @@ cd MailSender
 dotnet run --project MailSender.Api
 
 # 4. Otwórz Swagger UI
-# https://localhost:5001/swagger
+# http://localhost:5235/swagger
 ```
 
 ### User Secrets (zalecane zamiast edycji appsettings.json)
