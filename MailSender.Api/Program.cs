@@ -44,28 +44,62 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
-builder.Services.Configure<RegistrationSettings>(
-    builder.Configuration.GetSection("Registration")
-);
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("WebClientPolicy", policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("Jwt")
 );
-builder.Services.Configure<StudentSettings>(
-    builder.Configuration.GetSection("Student")
+builder.Services.Configure<List<StudentSettings>>(
+    builder.Configuration.GetSection("Students")
 );
 builder.Services.Configure<BrevoSettings>(
     builder.Configuration.GetSection("Brevo")
+);
+builder.Services.Configure<MailtrapSettings>(
+    builder.Configuration.GetSection("Mailtrap")
+);
+builder.Services.Configure<MailProviderSettings>(
+    builder.Configuration.GetSection("MailProvider")
 );
 builder.Services.AddScoped<IRegistrationPasswordValidator, RegistrationPasswordValidator>();
 
 builder.Services.AddSingleton<IClientApplicationRepository, InMemoryClientApplicationRepository>();
 
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
-builder.Services.AddScoped<IMailSenderProvider, FakeMailSenderProvider>();
+
+var selectedMailProvider = builder.Configuration["MailProvider:SelectedProvider"];
+
+switch (selectedMailProvider)
+{
+    case "Brevo":
+        builder.Services.AddHttpClient<IMailSenderProvider, BrevoMailSenderProvider>();
+        break;
+
+    case "Mailtrap":
+        builder.Services.AddHttpClient<IMailSenderProvider, MailtrapMailSenderProvider>();
+        break;
+
+    case "Fake":
+        builder.Services.AddScoped<IMailSenderProvider, FakeMailSenderProvider>();
+        break;
+
+    default:
+        throw new InvalidOperationException(
+            $"Unknown mail provider selected: {selectedMailProvider}. Available providers: Fake, Brevo, Mailtrap."
+        );
+}
 
 builder.Services.AddScoped<ClientApplicationService>();
 builder.Services.AddScoped<MailService>();
-builder.Services.AddHttpClient<IMailSenderProvider, BrevoMailSenderProvider>();
 
 var jwtSettings = builder.Configuration
     .GetSection("Jwt")
@@ -100,6 +134,7 @@ app.UseSwaggerUI();
 
 
 app.UseHttpsRedirection();
+app.UseCors("WebClientPolicy");
 
 app.UseAuthentication();
 app.UseAuthorization();

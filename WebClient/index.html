@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MailSender Client Demo</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="badge">
+          <span class="badge-dot"></span>
+          MailSender Backend Client Demo
+        </div>
+
+        <h1>Wyślij wiadomość przez MailSender API</h1>
+
+        <p>
+          Prosty klient demonstracyjny korzystający z endpointu
+          <strong>/mail/send</strong>. Wklej token JWT wygenerowany przez
+          <strong>/client-app/register</strong>, uzupełnij dane wiadomości i
+          wyślij e-mail.
+        </p>
+      </section>
+
+      <section class="layout">
+        <form id="mailForm" class="card form-card">
+          <h2 class="section-title">Formularz wysyłki</h2>
+          <p class="section-description">
+            Dane zostaną wysłane do backendu jako JSON z nagłówkiem
+            Authorization.
+          </p>
+
+          <div class="form-group">
+            <label for="apiUrl">
+              API URL
+              <span class="label-hint">adres backendu</span>
+            </label>
+            <input
+              id="apiUrl"
+              type="text"
+              value="http://localhost:5235"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="token">
+              JWT Token
+              <span class="label-hint">bez słowa Bearer</span>
+            </label>
+            <textarea
+              id="token"
+              class="token-area"
+              placeholder="Wklej tutaj token JWT z endpointu /client-app/register"
+              required
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="to">
+              Odbiorca
+              <span class="label-hint">adres e-mail</span>
+            </label>
+            <input
+              id="to"
+              type="email"
+              placeholder="np. krystian.haberka@microsoft.wsei.edu.pl"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="subject">
+              Temat
+              <span class="label-hint">dodaj ? aby sprawdzić [Q]</span>
+            </label>
+            <input
+              id="subject"
+              type="text"
+              placeholder="np. Czy Brevo działa?"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="body">
+              Treść
+              <span class="label-hint"
+                >wpisz nazwisko jednego z autorów*, aby sprawdzić marker</span
+              >
+            </label>
+            <textarea
+              id="body"
+              placeholder="np. To jest test od *."
+              required
+            ></textarea>
+          </div>
+
+          <div class="button-row">
+            <button class="btn-primary" type="submit">Wyślij wiadomość</button>
+
+            <button class="btn-secondary" type="button" id="fillExample">
+              Wstaw przykład
+            </button>
+          </div>
+        </form>
+
+        <aside class="card side-card">
+          <h2 class="section-title">Jak testować?</h2>
+          <p class="section-description">
+            Najpierw wygeneruj token w Swaggerze, a potem użyj go tutaj.
+          </p>
+
+          <div class="info-list">
+            <div class="info-item">
+              <strong>1. Rejestracja aplikacji</strong>
+              <span>
+                Wywołaj endpoint POST /client-app/register i skopiuj wartość
+                pola key.
+              </span>
+            </div>
+
+            <div class="info-item">
+              <strong>2. Token JWT</strong>
+              <span>
+                Wklej token do pola JWT Token. Skrypt doda nagłówek
+                Authorization: Bearer.
+              </span>
+            </div>
+
+            <div class="info-item">
+              <strong>3. Reguły biznesowe</strong>
+              <span>
+                Temat zakończony znakiem ? dostanie prefiks [Q], a nazwisko w
+                treści zostanie oznaczone markerem [student.surname].
+              </span>
+            </div>
+
+            <div class="info-item">
+              <strong>4. Wysyłka</strong>
+              <span>
+                Backend przekaże wiadomość do skonfigurowanego providera, np.
+                Brevo.
+              </span>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="card response-card">
+        <div class="response-header">
+          <h2 class="section-title">Odpowiedź API</h2>
+          <span id="status" class="status-pill">Oczekuje na wysyłkę</span>
+        </div>
+
+        <pre id="result">Brak odpowiedzi.</pre>
+      </section>
+
+      <footer class="footer">
+        MailSender Client Demo — projekt zaliczeniowy Programowanie aplikacji
+        backendowych
+      </footer>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

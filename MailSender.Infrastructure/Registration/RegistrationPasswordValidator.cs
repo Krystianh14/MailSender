@@ -1,24 +1,27 @@
 using MailSender.Application.Interfaces;
+using MailSender.Application.Settings;
 using Microsoft.Extensions.Options;
 
 namespace MailSender.Infrastructure.Registration;
 
 public class RegistrationPasswordValidator : IRegistrationPasswordValidator
 {
-    private readonly RegistrationSettings _settings;
+    private readonly List<StudentSettings> _students;
 
-    public RegistrationPasswordValidator(IOptions<RegistrationSettings> options)
+    public RegistrationPasswordValidator(IOptions<List<StudentSettings>> options)
     {
-        _settings = options.Value;
+        _students = options.Value;
     }
 
     public bool IsValid(string password)
     {
-        return password == _settings.Password;
+        return _students.Any(student => student.Password == password);
     }
 
     public string GetInvalidPasswordMessage()
     {
-        return $"Invalid index-based password {_settings.IndexSuffix}";
+        var suffixes = string.Join(", ", _students.Select(student => student.IndexSuffix));
+
+        return $"Invalid index-based password. Expected one of suffixes: {suffixes}";
     }
 }

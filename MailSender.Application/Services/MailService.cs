@@ -13,12 +13,12 @@ public class MailService
     private const string StudentSurnameMarker = "[student.surname]";
 
     private readonly IMailSenderProvider _mailSenderProvider;
-    private readonly StudentSettings _studentSettings;
+    private readonly List<StudentSettings> _students;
 
-    public MailService(IMailSenderProvider mailSenderProvider, IOptions<StudentSettings> studentOptions)
+    public MailService(IMailSenderProvider mailSenderProvider, IOptions<List<StudentSettings>> studentOptions)
     {
         _mailSenderProvider = mailSenderProvider;
-        _studentSettings = studentOptions.Value;
+        _students = studentOptions.Value;
     }
 
     public async Task<ServiceResult<SendMailResponse>> SendAsync(SendMailRequest request, ClientApplication application)
@@ -61,19 +61,27 @@ public class MailService
     }
 
     private string PrepareBody(string body)
+{
+    var result = body;
+
+    foreach (var student in _students)
     {
-        var surname = _studentSettings.Surname;
-
-        if (string.IsNullOrWhiteSpace(surname))
+        if (string.IsNullOrWhiteSpace(student.Surname))
         {
-            return body;
+            continue;
         }
 
-        if (!body.Contains(surname))
+        if (!result.Contains(student.Surname))
         {
-            return body;
+            continue;
         }
 
-        return body.Replace(surname,$"{StudentSurnameMarker}{surname}{StudentSurnameMarker}");
+        result = result.Replace(
+            student.Surname,
+            $"{StudentSurnameMarker}{student.Surname}{StudentSurnameMarker}"
+        );
     }
+
+    return result;
+}
 }
