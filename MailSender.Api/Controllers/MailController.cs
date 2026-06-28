@@ -22,39 +22,39 @@ public class MailController : ControllerBase
     }
 
     [Authorize]
-    [HttpPost("send")]
-    public async Task<IActionResult> Send(SendMailRequest request)
+[HttpPost("send")]
+public async Task<IActionResult> Send(SendMailRequest request)
+{
+    var applicationIdClaim = User.FindFirst("client_application_id")?.Value;
+
+    if (!Guid.TryParse(applicationIdClaim, out var applicationId))
     {
-        var appId = User.FindFirst("app_id")?.Value;
-
-        if (string.IsNullOrWhiteSpace(appId))
+        return Unauthorized(new
         {
-            return Unauthorized(new
-            {
-                error = "Invalid token. Missing app_id claim."
-            });
-        }
-
-        var application = await _clientApplicationRepository.GetByAppIdAsync(appId);
-
-        if (application is null)
-        {
-            return Unauthorized(new
-            {
-                error = "Client application not found."
-            });
-        }
-
-        var result = await _mailService.SendAsync(request, application);
-
-        if (!result.IsSuccess)
-        {
-            return BadRequest(new
-            {
-                error = result.Error
-            });
-        }
-
-        return Ok(result.Data);
+            error = "Invalid token. Missing or invalid client_application_id claim."
+        });
     }
+
+    var application = await _clientApplicationRepository.GetByIdAsync(applicationId);
+
+    if (application is null)
+    {
+        return Unauthorized(new
+        {
+            error = "Client application not found."
+        });
+    }
+
+    var result = await _mailService.SendAsync(request, application);
+
+    if (!result.IsSuccess)
+    {
+        return BadRequest(new
+        {
+            error = result.Error
+        });
+    }
+
+    return Ok(result.Data);
+}
 }

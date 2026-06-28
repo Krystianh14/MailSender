@@ -6,10 +6,11 @@ using MailSender.Infrastructure.Auth;
 using MailSender.Infrastructure.MailProviders;
 using MailSender.Infrastructure.Repositories;
 using MailSender.Infrastructure.Registration;
+using MailSender.Infrastructure.Persistence;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-
+using Microsoft.EntityFrameworkCore;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -72,7 +73,13 @@ builder.Services.Configure<MailProviderSettings>(
 );
 builder.Services.AddScoped<IRegistrationPasswordValidator, RegistrationPasswordValidator>();
 
-builder.Services.AddSingleton<IClientApplicationRepository, InMemoryClientApplicationRepository>();
+builder.Services.AddDbContext<MailSenderDbContext>(options =>
+{
+    options.UseInMemoryDatabase("MailSenderDatabase");
+});
+
+builder.Services.AddScoped<IClientApplicationRepository, EfClientApplicationRepository>();
+builder.Services.AddScoped<IMailLogRepository, EfMailLogRepository>();
 
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 
@@ -100,6 +107,7 @@ switch (selectedMailProvider)
 
 builder.Services.AddScoped<ClientApplicationService>();
 builder.Services.AddScoped<MailService>();
+builder.Services.AddScoped<MailLogService>();
 
 var jwtSettings = builder.Configuration
     .GetSection("Jwt")

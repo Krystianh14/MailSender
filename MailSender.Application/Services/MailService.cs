@@ -13,15 +13,22 @@ public class MailService
     private const string StudentSurnameMarker = "[student.surname]";
 
     private readonly IMailSenderProvider _mailSenderProvider;
+    private readonly IMailLogRepository _mailLogRepository;
     private readonly List<StudentSettings> _students;
 
-    public MailService(IMailSenderProvider mailSenderProvider, IOptions<List<StudentSettings>> studentOptions)
+    public MailService(
+        IMailSenderProvider mailSenderProvider,
+        IMailLogRepository mailLogRepository,
+        IOptions<List<StudentSettings>> studentOptions)
     {
         _mailSenderProvider = mailSenderProvider;
+        _mailLogRepository = mailLogRepository;
         _students = studentOptions.Value;
     }
 
-    public async Task<ServiceResult<SendMailResponse>> SendAsync(SendMailRequest request, ClientApplication application)
+    public async Task<ServiceResult<SendMailResponse>> SendAsync(
+        SendMailRequest request,
+        ClientApplication application)
     {
         var subject = PrepareSubject(request.Subject);
         var body = PrepareBody(request.Body);
@@ -32,22 +39,49 @@ public class MailService
             body
         );
 
-        await _mailSenderProvider.SendAsync(message);
+        try
+        {
+            await _mailSenderProvider.SendAsync(message);
 
-        var emailDto = new MailDto(
-            message.To,
-            message.Subject,
-            message.Body
-        );
+            var successLog = MailSendLog.Success(
+                application,
+                message.To,
+                message.Subject,
+                message.Body
+            );
 
-        var response = new SendMailResponse(
-            application.AppId,
-            application.AppName,
-            "queued",
-            emailDto
-        );
+            await _mailLogRepository.AddAsync(successLog);
 
-        return ServiceResult<SendMailResponse>.Success(response);
+            var emailDto = new MailDto(
+                message.To,
+                message.Subject,
+                message.Body
+            );
+
+            var response = new SendMailResponse(
+                application.AppId,
+                application.AppName,
+                "Success",
+                emailDto
+            );
+
+            return ServiceResult<SendMailResponse>.Success(response);
+        }
+        catch (Exception ex)
+        {
+            var failedLog = MailSendLog.Failed(
+                application,
+                message.To,
+                message.Subject,
+                message.Body,
+                ex.Message
+            );
+
+            await _mailLogRepository.AddAsync(failedLog);
+
+            return ServiceResult<SendMailResponse>.Failure(
+                $"Email sending failed: {ex.Message}");
+        }
     }
 
     private static string PrepareSubject(string subject)
@@ -61,27 +95,25 @@ public class MailService
     }
 
     private string PrepareBody(string body)
-{
-    var result = body;
-
-    foreach (var student in _students)
     {
-        if (string.IsNullOrWhiteSpace(student.Surname))
+        var result = body;
+
+        foreach (var student in _students)
         {
-            continue;
+            if (string.IsNullOrWhiteSpace(student.Surname))
+            {
+                continue;
+            }
+
+            if (!result.Contains(student.Surname))
+            {
+                continue;
+            }
+
+            result = result.Replace(
+                student.Surname,$"{StudentSurnameMarker}{student.Surname}{StudentSurnameMarker}");
         }
 
-        if (!result.Contains(student.Surname))
-        {
-            continue;
-        }
-
-        result = result.Replace(
-            student.Surname,
-            $"{StudentSurnameMarker}{student.Surname}{StudentSurnameMarker}"
-        );
+        return result;
     }
-
-    return result;
-}
 }
