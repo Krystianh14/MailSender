@@ -48,10 +48,18 @@ mailForm.addEventListener("submit", async function (event) {
 });
 
 fillExampleButton.addEventListener("click", function () {
-  document.getElementById("to").value =
-    "krystian.haberka@microsoft.wsei.edu.pl";
-  document.getElementById("subject").value = "Czy Brevo działa?";
-  document.getElementById("body").value = "To jest test od Haberka.";
+  if (clickButtonTimes % 2 == 0) {
+    document.getElementById("to").value =
+      "krystian.haberka@microsoft.wsei.edu.pl";
+    document.getElementById("subject").value = "Czy Brevo działa?";
+    document.getElementById("body").value = "To jest test od Haberka.";
+  } else {
+    document.getElementById("to").value =
+      "magdalena.kapusta@microsoft.wsei.edu.pl";
+    document.getElementById("subject").value = "Czy Brevo działa?";
+    document.getElementById("body").value = "To jest test od Kapusta.";
+  }
+  clickButtonTimes++;
 });
 
 function showResult(data, statusText) {
