@@ -120,15 +120,12 @@ MailSender/
 | `MailSenderDbContext` | Scoped (DbContext) | Kontekst EF Core z tabelami `ClientApplications` i `MailSendLogs` |
 | Provider maila | Scoped / HttpClient | Wybierany dynamicznie: `Fake`, `Brevo` lub `Mailtrap` (patrz [Dostawcy maili](#dostawcy-maili)) |
 
-> **Uwaga:** `InMemoryClientApplicationRepository` istnieje w kodzie, ale **nie jest zarejestrowany** w `Program.cs` — aktualnie aplikacja używa wyłącznie `EfClientApplicationRepository` z bazą EF Core In-Memory (`MailSenderDbContext`). Dane nadal giną po restarcie aplikacji, ale logika idzie przez EF.
-
 ### Specjalna logika biznesowa (`MailService`)
 
 Przed wysyłką treść maila jest automatycznie modyfikowana:
 
 - Jeśli `Subject` kończy się znakiem `?`, dodawany jest prefiks `[Q] ` na początku tematu.
 - Jeśli `Body` zawiera nazwisko któregoś ze studentów skonfigurowanych w `Students` (np. "Haberka"), nazwisko jest otaczane znacznikiem `[student.surname]Haberka[student.surname]`.
-
 ---
 
 ## Endpointy API
@@ -307,7 +304,6 @@ Projekt korzysta z **EF Core In-Memory Database** (`builder.Services.AddDbContex
 
 - nie trzeba instalować ani konfigurować żadnej bazy danych,
 - wszystkie dane (zarejestrowane aplikacje, logi wysyłek) **giną po każdym restarcie** aplikacji,
-- do produkcji warto zamienić na rzeczywisty silnik (np. `UseSqlServer` / `UseNpgsql`).
 
 ### User Secrets (zalecane)
 
@@ -320,7 +316,7 @@ dotnet user-secrets set "Brevo:ApiKey" "twój-klucz-brevo" --project MailSender.
 
 ## Bezpieczeństwo
 
-> ⚠️ Przed wdrożeniem produkcyjnym:
+> Przed wdrożeniem produkcyjnym:
 
 - **Zmień `Jwt:SecretKey`** — domyślna wartość jest jawna w repozytorium.
 - **Hasła rejestracyjne** (`Students`) są obecnie jawnym tekstem w konfiguracji — rozważ ich ukrycie lub wymianę na inny mechanizm uwierzytelniania klientów.
