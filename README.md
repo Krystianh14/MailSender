@@ -335,3 +335,61 @@ dotnet user-secrets set "Brevo:ApiKey" "twój-klucz-brevo" --project MailSender.
 1. `POST /client-app/register` z poprawnym hasłem (np. `dwa13`) → skopiuj `key` z odpowiedzi.
 2. Kliknij **Authorize** w Swagger UI, wpisz `Bearer <key>`.
 3. Wywołaj `POST /mail/send` lub `GET /mail-log`.
+
+---
+
+## Klient demo (webclient)
+
+Projekt zawiera dodatkowo prosty **frontend demonstracyjny** (`webclient/`) — formularz HTML/JS zbudowany w Vite, który pozwala wysłać maila przez `/mail/send` bez używania Swaggera.
+
+### Struktura
+
+```
+webclient/
+├── index.html              # Formularz (API URL, token JWT, odbiorca, temat, treść)
+├── app.js                  # Logika formularza, wywołuje wygenerowanego klienta API
+├── style.css               # Stylowanie
+├── openapi.json             # Specyfikacja OpenAPI backendu (źródło generowania klienta)
+├── package.json
+└── generated-ts/            # Klient TS wygenerowany z openapi.json (openapi-typescript-codegen)
+    └── generated-js/        # Skompilowana wersja JS (importowana przez app.js)
+```
+
+Klient API (`generated-ts`/`generated-js`) jest generowany automatycznie z `openapi.json` przy pomocy `openapi-typescript-codegen` — pliki te nie powinny być edytowane ręcznie (każdy zawiera nagłówek `/* generated using openapi-typescript-codegen -- do not edit */`).
+
+### Uruchomienie klienta demo
+
+```bash
+cd webclient
+npm install
+
+# Wygeneruj klienta API na podstawie openapi.json (jeśli folder generated-ts/generated-js nie istnieje)
+npm run generate:ts
+npm run build:generated-js
+
+# Uruchom serwer dev
+npm run dev
+```
+
+Klient wystartuje na `http://127.0.0.1:5500`. **Backend (`MailSender.Api`) musi działać równolegle** na `http://localhost:5235` — w drugim terminalu:
+
+```bash
+dotnet run --project MailSender.Api
+```
+
+### Jak przetestować
+
+1. Backend działa w tle.
+2. Wejdź na Swagger (`http://localhost:5235/swagger`), wywołaj `POST /client-app/register`, skopiuj `key` z odpowiedzi.
+3. Otwórz `http://127.0.0.1:5500` — wklej token do pola **JWT Token** (bez słowa "Bearer", skrypt dodaje je automatycznie).
+4. Kliknij **„Wstaw przykład"**, aby wypełnić formularz danymi testującymi obie reguły biznesowe (temat z `?` → prefiks `[Q]`, nazwisko "Haberka" w treści → marker `[student.surname]`).
+5. Kliknij **„Wyślij wiadomość"** — odpowiedź z API pojawi się w sekcji **„Odpowiedź API"** na dole strony.
+
+### Skrypty npm (`webclient/package.json`)
+
+| Skrypt | Działanie |
+|---|---|
+| `npm run generate:ts` | Generuje klienta TypeScript z `openapi.json` do folderu `generated-ts` |
+| `npm run build:generated-js` | Kompiluje `generated-ts` do `generated-js` (importowane przez `app.js`) |
+| `npm run dev` | Uruchamia serwer deweloperski Vite na `127.0.0.1:5500` |
+| `npm run build` | Buduje wersję produkcyjną |
