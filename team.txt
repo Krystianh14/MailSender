@@ -1,0 +1,10 @@
+Podział prac w projekcie MailSender
+
+1. 15813 Haberka Krystian
+   Osoba odpowiedzialna za zadanie 1 Basic wraz z zachowaniem zasad Clean Architecture oraz dokumentacja projektu.
+   W ramach pracy przygotowano strukturę projektu, warstwy Api/Application/Domain/Infrastructure, konfigurację Swagger/OpenAPI, autentykację tokenową, endpoint POST /client-app/register, generowanie tokenu JWT oraz endpoint POST /mail/send wraz z obsługą wymagań biznesowych dotyczących tematu i treści wiadomości oraz zaimplementowano providera Brevo.
+
+2. 15802  Kapusta Magda
+   Osoba odpowiedzialna za zadanie 2 ClientDemo, zadanie 3 Providers i 4 Logs
+   W ramach pracy wygenerowano bibliotekę TypeScript na podstawie OpenAPI, przekonwertowano ją do JavaScript, przygotowano prosty WebClient, utworzono interfejs IMailSenderProvider, zaimplementowano providera Mailtrap oraz skonfigurowano możliwość wymiany providera. Utworzono modele aplikacji i logów, skonfigurowano Entity Framework InMemory Database, dodano zapis aplikacji do bazy, walidację duplikatów, zapis logów wysyłki wiadomości oraz endpointy GET /mail-log i GET /mail-log/{id} z dostępem ograniczonym do danych aplikacji uwierzytelnionej tokenem.
+
