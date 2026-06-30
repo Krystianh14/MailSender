@@ -4,6 +4,7 @@ const mailForm = document.getElementById("mailForm");
 const resultElement = document.getElementById("result");
 const statusElement = document.getElementById("status");
 const fillExampleButton = document.getElementById("fillExample");
+let clickButtonTimes = 0;
 
 mailForm.addEventListener("submit", async function (event) {
   event.preventDefault();
