@@ -1,6 +1,6 @@
 # MailSender API
 
-REST API do wysyłania wiadomości e-mail, zbudowane w ASP.NET Core. Aplikacje klienckie rejestrują się, otrzymują token JWT, a następnie używają go do autoryzowanego wysyłania maili przez dostawcę Brevo (dawniej Sendinblue).
+REST API do wysyłania wiadomości e-mail, zbudowane w ASP.NET Core (.NET 10) z architekturą warstwową (Clean Architecture). Aplikacje klienckie rejestrują się, otrzymują token JWT, a następnie używają go do autoryzowanego wysyłania maili oraz przeglądania historii wysyłek.
 
 ---
 
@@ -10,6 +10,7 @@ REST API do wysyłania wiadomości e-mail, zbudowane w ASP.NET Core. Aplikacje k
 - [Architektura](#architektura)
 - [Endpointy API](#endpointy-api)
 - [Konfiguracja](#konfiguracja)
+- [Dostawcy maili](#dostawcy-maili)
 - [Uruchomienie](#uruchomienie)
 - [Bezpieczeństwo](#bezpieczeństwo)
 
@@ -17,79 +18,116 @@ REST API do wysyłania wiadomości e-mail, zbudowane w ASP.NET Core. Aplikacje k
 
 ## Jak działa
 
-Przepływ działania aplikacji składa się z dwóch kroków:
+```
+1. Rejestracja                     2. Wysyłanie maila              3. Historia wysyłek
+──────────────────                 ────────────────────             ──────────────────
+POST /client-app/register          POST /mail/send                  GET /mail-log
+  + AppId, AppName, Pass             + Bearer token (JWT)              + Bearer token (JWT)
+        │                                  │                                │
+        ▼                                  ▼                                ▼
+  Walidacja hasła                Odczyt client_application_id       Odczyt client_application_id
+  (lista studentów)                      z tokenu                          z tokenu
+        │                                  │                                │
+        ▼                                  ▼                                ▼
+  Sprawdzenie unikalności      Pobranie aplikacji z bazy (EF)      Pobranie logów danej aplikacji
+   AppId i AppName                        │                                │
+        │                                  ▼                                ▼
+        ▼                       Modyfikacja treści (subject/body)   Zwrot listy / szczegółu logu
+  Zapis aplikacji w bazie                  │
+        │                                  ▼
+        ▼                       Wysyłka przez wybrany provider
+  Generowanie JWT               (Fake / Brevo / Mailtrap)
+        │                                  │
+        ▼                                  ▼
+  Zwrot tokenu do klienta          Zapis logu (Success/Failed)
+```
 
-```
-1. Rejestracja                          2. Wysyłanie maila
-──────────────────                      ────────────────────────────────
-POST /client-app/register               POST /mail/send
-  + hasło rejestracyjne                   + Bearer token (JWT)
-        │                                       │
-        ▼                                       ▼
-  Walidacja hasła                    Weryfikacja tokenu JWT
-        │                             Odczyt app_id z claimu
-        ▼                                       │
-  Zapis aplikacji                               ▼
-  w repozytorium                   Pobranie aplikacji z repozytorium
-        │                                       │
-        ▼                                       ▼
-  Generowanie JWT                     Wysłanie maila przez Brevo
-        │                             (lub FakeMailSenderProvider)
-        ▼
-  Zwrot tokenu do klienta
-```
+Token JWT zawiera trzy claimy: `client_application_id` (Guid — używany do autoryzacji), `app_id` i `app_name`.
 
 ---
 
 ## Architektura
 
-Projekt zbudowany jest warstwowo, zgodnie z Clean Architecture:
+Projekt jest podzielony na cztery warstwy:
 
 ```
 MailSender/
-├── Api/                        # Warstwa prezentacji
+├── MailSender.Api/                       # Warstwa prezentacji
 │   └── Controllers/
-│       ├── ClientAppController.cs   # Rejestracja klientów
-│       └── MailController.cs        # Wysyłanie maili
+│       ├── ClientAppController.cs        # POST /client-app/register
+│       ├── MailController.cs             # POST /mail/send
+│       └── MailLogController.cs          # GET /mail-log, GET /mail-log/{id}
 │
-├── Application/                # Logika aplikacji
+├── MailSender.Application/               # Logika aplikacji
+│   ├── Common/
+│   │   └── ServiceResult.cs              # Generyczny wrapper sukces/błąd
+│   ├── DTOs/
+│   │   ├── ClientApps/                   # Request/Response rejestracji
+│   │   ├── Mail/                         # Request/Response wysyłki
+│   │   └── MailLogs/                     # DTO logów
 │   ├── Interfaces/
 │   │   ├── IClientApplicationRepository.cs
-│   │   ├── IJwtTokenService.cs
+│   │   ├── IMailLogRepository.cs
 │   │   ├── IMailSenderProvider.cs
+│   │   ├── IJwtTokenService.cs
 │   │   └── IRegistrationPasswordValidator.cs
 │   ├── Services/
-│   │   ├── ClientApplicationService.cs
-│   │   └── MailService.cs
-│   ├── DTOs/
+│   │   ├── ClientApplicationService.cs   # Logika rejestracji
+│   │   ├── MailService.cs                # Logika wysyłki + logowania
+│   │   └── MailLogService.cs             # Logika odczytu logów
 │   └── Settings/
+│       └── StudentSettings.cs
 │
-├── Infrastructure/             # Implementacje zewnętrzne
-│   ├── Auth/                   # JwtTokenService
+├── MailSender.Infrastructure/            # Implementacje zewnętrzne
+│   ├── Auth/
+│   │   ├── JwtSettings.cs
+│   │   └── JwtTokenService.cs            # Generowanie JWT
 │   ├── MailProviders/
-│   │   ├── BrevoMailSenderProvider.cs   # Produkcyjny provider (HTTP)
-│   │   └── FakeMailSenderProvider.cs    # Mock do developmentu
-│   ├── Repositories/
-│   │   └── InMemoryClientApplicationRepository.cs
-│   └── Registration/
+│   │   ├── FakeMailSenderProvider.cs     # Mock — loguje do konsoli
+│   │   ├── BrevoMailSenderProvider.cs    # Wysyłka przez Brevo API
+│   │   ├── MailtrapMailSenderProvider.cs # Wysyłka przez Mailtrap API
+│   │   ├── BrevoSettings.cs
+│   │   ├── MailtrapSettings.cs
+│   │   └── MailProviderSettings.cs       # Wybór aktywnego providera
+│   ├── Persistence/
+│   │   └── MailSenderDbContext.cs        # EF Core DbContext
+│   ├── Registration/
+│   │   ├── RegistrationSettings.cs
+│   │   └── RegistrationPasswordValidator.cs
+│   └── Repositories/
+│       ├── EfClientApplicationRepository.cs   # Aktywne (EF Core)
+│       ├── EfMailLogRepository.cs             # Aktywne (EF Core)
+│       └── InMemoryClientApplicationRepository.cs  # Nieużywane, zachowane jako alternatywa
 │
-└── Domain/                     # Encje domenowe
+└── MailSender.Domain/                    # Encje domenowe
     └── Entities/
-        ├── ClientApplication.cs
-        └── MailMessage.cs
+        ├── ClientApplication.cs          # Id, AppId, AppName
+        ├── MailSendLog.cs                # Log wysyłki (Success/Failed)
+        └── MailMessage.cs                # To, Subject, Body
 ```
 
 ### Kluczowe komponenty
 
-| Komponent | Typ | Opis |
+| Komponent | Typ rejestracji | Opis |
 |---|---|---|
-| `ClientApplicationService` | Scoped | Obsługuje rejestrację — waliduje hasło, tworzy aplikację, generuje JWT |
-| `MailService` | Scoped | Buduje wiadomość i deleguje wysyłkę do providera |
-| `JwtTokenService` | Scoped | Generuje tokeny JWT z claimem `app_id` |
-| `InMemoryClientApplicationRepository` | Singleton | Przechowuje zarejestrowane aplikacje w pamięci (dane giną po restarcie) |
-| `BrevoMailSenderProvider` | Scoped (HttpClient) | Wysyła maile przez Brevo REST API |
-| `FakeMailSenderProvider` | Scoped | Symuluje wysyłkę bez zewnętrznego API — do testów lokalnych |
-| `RegistrationPasswordValidator` | Scoped | Sprawdza hasło rejestracyjne z konfiguracji |
+| `ClientApplicationService` | Scoped | Waliduje hasło, sprawdza unikalność AppId/AppName, tworzy aplikację, generuje JWT |
+| `MailService` | Scoped | Modyfikuje treść maila, wysyła przez wybrany provider, zapisuje log |
+| `MailLogService` | Scoped | Odczytuje historię wysyłek dla danej aplikacji klienckiej |
+| `JwtTokenService` | Scoped | Generuje token JWT z claimami `client_application_id`, `app_id`, `app_name` |
+| `RegistrationPasswordValidator` | Scoped | Waliduje hasło rejestracyjne na podstawie listy `Students` z konfiguracji |
+| `EfClientApplicationRepository` | Scoped | Repozytorium aplikacji klienckich — EF Core, baza in-memory |
+| `EfMailLogRepository` | Scoped | Repozytorium logów wysyłek — EF Core, baza in-memory |
+| `MailSenderDbContext` | Scoped (DbContext) | Kontekst EF Core z tabelami `ClientApplications` i `MailSendLogs` |
+| Provider maila | Scoped / HttpClient | Wybierany dynamicznie: `Fake`, `Brevo` lub `Mailtrap` (patrz [Dostawcy maili](#dostawcy-maili)) |
+
+> **Uwaga:** `InMemoryClientApplicationRepository` istnieje w kodzie, ale **nie jest zarejestrowany** w `Program.cs` — aktualnie aplikacja używa wyłącznie `EfClientApplicationRepository` z bazą EF Core In-Memory (`MailSenderDbContext`). Dane nadal giną po restarcie aplikacji, ale logika idzie przez EF.
+
+### Specjalna logika biznesowa (`MailService`)
+
+Przed wysyłką treść maila jest automatycznie modyfikowana:
+
+- Jeśli `Subject` kończy się znakiem `?`, dodawany jest prefiks `[Q] ` na początku tematu.
+- Jeśli `Body` zawiera nazwisko któregoś ze studentów skonfigurowanych w `Students` (np. "Haberka"), nazwisko jest otaczane znacznikiem `[student.surname]Haberka[student.surname]`.
 
 ---
 
@@ -97,121 +135,150 @@ MailSender/
 
 ### `POST /client-app/register`
 
-Rejestruje nową aplikację kliencką i zwraca token JWT.
+Rejestruje nową aplikację kliencką i zwraca token JWT. **Bez autoryzacji.**
 
-**Nie wymaga autoryzacji.**
-
-**Request body:**
+**Request:**
 ```json
 {
+  "appId": "moja-aplikacja",
   "appName": "MojaAplikacja",
-  "password": "dwa13"
+  "pass": "dwa13"
 }
 ```
 
-**Odpowiedź sukcesu `200 OK`:**
+**`200 OK`:**
 ```json
 {
-  "appId": "550e8400-e29b-41d4-a716-446655440000",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "appId": "moja-aplikacja",
+  "appName": "MojaAplikacja",
+  "key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
-**Odpowiedź błędu `403 Forbidden`** (nieprawidłowe hasło):
+**`403 Forbidden`** — błędne hasło lub duplikat AppId/AppName:
 ```json
-{
-  "error": "Invalid registration password."
-}
+{ "error": "Invalid index-based password. Expected one of suffixes: 13, 28, 02" }
 ```
 
 ---
 
 ### `POST /mail/send`
 
-Wysyła wiadomość e-mail. Wymaga ważnego tokenu JWT w nagłówku.
+Wysyła maila. **Wymaga:** `Authorization: Bearer <token>`
 
-**Wymaga autoryzacji:** `Authorization: Bearer <token>`
-
-**Request body:**
+**Request:**
 ```json
 {
   "to": "odbiorca@example.com",
-  "subject": "Temat wiadomości",
-  "body": "Treść wiadomości e-mail"
+  "subject": "Pytanie o status?",
+  "body": "Pozdrawiam, Haberka"
 }
 ```
 
-**Odpowiedź sukcesu `200 OK`:**
+**`200 OK`:**
 ```json
 {
-  "message": "Email sent successfully."
+  "appId": "moja-aplikacja",
+  "appName": "MojaAplikacja",
+  "status": "Success",
+  "email": {
+    "to": "odbiorca@example.com",
+    "subject": "[Q] Pytanie o status?",
+    "body": "Pozdrawiam, [student.surname]Haberka[student.surname]"
+  }
 }
 ```
 
-**Odpowiedź błędu `401 Unauthorized`** (brak/błędny token):
+**`401 Unauthorized`** — brak/błędny token lub aplikacja nieznaleziona.
+**`400 Bad Request`** — błąd wysyłki (np. provider zwrócił błąd).
+
+---
+
+### `GET /mail-log`
+
+Zwraca historię wszystkich wysyłek dla aplikacji powiązanej z tokenem. **Wymaga autoryzacji.**
+
+**`200 OK`:**
 ```json
-{
-  "error": "Invalid token. Missing app_id claim."
-}
+[
+  {
+    "id": "...",
+    "appId": "moja-aplikacja",
+    "appName": "MojaAplikacja",
+    "to": "odbiorca@example.com",
+    "subject": "[Q] Pytanie o status?",
+    "body": "...",
+    "status": "Success",
+    "errorMessage": null,
+    "createdAtUtc": "2026-06-30T10:00:00Z"
+  }
+]
 ```
 
-**Odpowiedź błędu `400 Bad Request`:**
-```json
-{
-  "error": "Opis błędu"
-}
-```
+### `GET /mail-log/{id}`
+
+Zwraca pojedynczy log wysyłki po jego ID (musi należeć do aplikacji z tokenu).
+
+**`404 Not Found`** jeśli log nie istnieje lub należy do innej aplikacji.
 
 ---
 
 ## Konfiguracja
 
-Plik `appsettings.json` — **przed wdrożeniem produkcyjnym zmień wszystkie domyślne wartości**.
+`appsettings.json`:
 
 ```json
 {
-  "Registration": {
-    "Password": "ZMIEŃ_MNIE",
-    "IndexSuffix": "13"
-  },
+  "Students": [
+    { "Surname": "Haberka", "IndexSuffix": "13" },
+    { "Surname": "Haczyk", "IndexSuffix": "28" },
+    { "Surname": "Kapusta", "IndexSuffix": "02" }
+  ],
   "Jwt": {
-    "SecretKey": "ZMIEŃ_MNIE_MINIMUM_32_ZNAKI",
+    "SecretKey": "ZMIEŃ_MNIE_MIN_32_ZNAKI",
     "Issuer": "MailSender",
     "Audience": "MailSenderClients",
     "ExpirationDays": 90
   },
-  "Student": {
-    "Surname": "Haberka"
+  "MailProvider": {
+    "SelectedProvider": "Fake"
   },
   "Brevo": {
-    "ApiKey": "TWÓJ_KLUCZ_BREVO",
-    "SenderEmail": "twój-email@example.com",
-    "SenderName": "MailSender App"
+    "ApiKey": "...",
+    "SenderEmail": "...",
+    "SenderName": "..."
+  },
+  "Mailtrap": {
+    "ApiKey": "...",
+    "SenderEmail": "...",
+    "SenderName": "...",
+    "UseSandbox": true,
+    "InboxId": 0
   }
 }
 ```
 
 | Pole | Opis |
 |---|---|
-| `Registration:Password` | Hasło wymagane do rejestracji nowego klienta |
-| `Registration:IndexSuffix` | Dodatkowy sufiks walidacji hasła |
-| `Jwt:SecretKey` | Klucz do podpisywania tokenów JWT (min. 32 znaki) |
-| `Jwt:ExpirationDays` | Czas ważności tokenu (domyślnie 90 dni) |
-| `Brevo:ApiKey` | Klucz API z panelu Brevo |
-| `Brevo:SenderEmail` | Adres nadawcy maili (musi być zweryfikowany w Brevo) |
+| `Students` | Lista dozwolonych haseł rejestracyjnych. Każdy student ma hasło w formacie `dwa{IndexSuffix}` (np. `dwa13`), generowane przez `StudentSettings.Password`. Nazwiska są też używane do oznaczania treści maila. |
+| `Jwt:SecretKey` | Klucz podpisujący JWT (min. 32 znaki) |
+| `Jwt:ExpirationDays` | Czas życia tokenu (domyślnie 90 dni) |
+| `MailProvider:SelectedProvider` | `Fake`, `Brevo` lub `Mailtrap` — wybiera aktywnego dostawcę maili |
+| `Brevo:*` / `Mailtrap:*` | Dane uwierzytelniające dla odpowiedniego providera |
 
-### Zmiana providera maili
+---
 
-W `Program.cs` domyślnie zarejestrowany jest `FakeMailSenderProvider` (mock). Aby przełączyć na prawdziwy Brevo, zmień:
+## Dostawcy maili
 
-```csharp
-// Przed (mock):
-builder.Services.AddScoped<IMailSenderProvider, FakeMailSenderProvider>();
+Wybór providera odbywa się dynamicznie w `Program.cs` na podstawie `MailProvider:SelectedProvider`:
 
-// Po (produkcja):
-// Wystarczy mieć wpis poniżej — HttpClient jest już skonfigurowany:
-builder.Services.AddHttpClient<IMailSenderProvider, BrevoMailSenderProvider>();
-```
+| Provider | Klasa | Działanie |
+|---|---|---|
+| `Fake` | `FakeMailSenderProvider` | Nie wysyła nic — loguje treść maila do konsoli. Domyślny, bezpieczny do testów lokalnych. |
+| `Brevo` | `BrevoMailSenderProvider` | Wysyła przez `https://api.brevo.com/v3/smtp/email` |
+| `Mailtrap` | `MailtrapMailSenderProvider` | Wysyła przez Mailtrap. Wsparcie dla sandboxa (`UseSandbox: true` + `InboxId`) lub wysyłki produkcyjnej |
+
+Podanie nieznanej wartości `SelectedProvider` powoduje wyjątek przy starcie aplikacji.
 
 ---
 
@@ -219,54 +286,52 @@ builder.Services.AddHttpClient<IMailSenderProvider, BrevoMailSenderProvider>();
 
 ### Wymagania
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download)
-- Konto w [Brevo](https://www.brevo.com/) (opcjonalnie — do produkcyjnego wysyłania maili)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- (Opcjonalnie) konto Brevo lub Mailtrap do prawdziwej wysyłki maili
 
 ### Kroki
 
 ```bash
-# 1. Sklonuj repozytorium
 git clone <url-repozytorium>
 cd MailSender
 
-# 2. Uzupełnij konfigurację
-# Edytuj appsettings.json lub użyj user secrets
-
-# 3. Uruchom aplikację
+dotnet restore
 dotnet run --project MailSender.Api
-
-# 4. Otwórz Swagger UI
-# https://localhost:5001/swagger
 ```
 
-### User Secrets (zalecane zamiast edycji appsettings.json)
+Aplikacja domyślnie wystartuje na `http://localhost:5235`. Swagger UI: `http://localhost:5235/swagger`.
+
+### Baza danych
+
+Projekt korzysta z **EF Core In-Memory Database** (`builder.Services.AddDbContext<MailSenderDbContext>(options => options.UseInMemoryDatabase("MailSenderDatabase"))`). Oznacza to, że:
+
+- nie trzeba instalować ani konfigurować żadnej bazy danych,
+- wszystkie dane (zarejestrowane aplikacje, logi wysyłek) **giną po każdym restarcie** aplikacji,
+- do produkcji warto zamienić na rzeczywisty silnik (np. `UseSqlServer` / `UseNpgsql`).
+
+### User Secrets (zalecane)
 
 ```bash
-dotnet user-secrets set "Jwt:SecretKey" "twój-sekretny-klucz"
-dotnet user-secrets set "Brevo:ApiKey" "twój-klucz-brevo"
-dotnet user-secrets set "Registration:Password" "twoje-hasło"
+dotnet user-secrets set "Jwt:SecretKey" "twój-sekretny-klucz" --project MailSender.Api
+dotnet user-secrets set "Brevo:ApiKey" "twój-klucz-brevo" --project MailSender.Api
 ```
 
 ---
 
 ## Bezpieczeństwo
 
-> ⚠️ **Uwagi dla środowiska produkcyjnego:**
+> ⚠️ Przed wdrożeniem produkcyjnym:
 
-- **Zmień `Jwt:SecretKey`** — domyślna wartość jest publiczna i niebezpieczna.
-- **Zmień `Registration:Password`** — domyślne hasło `dwa13` jest widoczne w repozytorium.
-- **Klucz Brevo** trzymaj w zmiennych środowiskowych lub Azure Key Vault, nigdy w `appsettings.json` commitowanym do gita.
-- **Repozytorium in-memory** — dane aplikacji klienckich giną po każdym restarcie serwera. Do produkcji należy zastąpić je bazą danych (np. Entity Framework + SQL Server/PostgreSQL).
-- Token JWT zawiera claim `app_id`, który identyfikuje aplikację kliencką przy każdym żądaniu wysyłki maila.
+- **Zmień `Jwt:SecretKey`** — domyślna wartość jest jawna w repozytorium.
+- **Hasła rejestracyjne** (`Students`) są obecnie jawnym tekstem w konfiguracji — rozważ ich ukrycie lub wymianę na inny mechanizm uwierzytelniania klientów.
+- **Klucze API (Brevo/Mailtrap)** trzymaj w zmiennych środowiskowych lub menedżerze sekretów, nigdy w commitowanym `appsettings.json`.
+- **Baza in-memory** nie nadaje się do produkcji — dane nie są trwałe.
+- Token JWT niesie `client_application_id`, na podstawie którego serwer identyfikuje wywołującą aplikację przy każdym żądaniu do `/mail/send` i `/mail-log`.
 
 ---
 
-## Swagger / Dokumentacja API
+## Testowanie przez Swagger
 
-Swagger UI dostępny jest pod adresem `/swagger` (włączony w każdym środowisku).
-
-Aby przetestować chroniony endpoint `/mail/send`:
-1. Wywołaj `POST /client-app/register` i skopiuj `token` z odpowiedzi.
-2. Kliknij **Authorize** w Swagger UI.
-3. Wpisz `Bearer <skopiowany-token>` i zatwierdź.
-4. Wywołaj `POST /mail/send`.
+1. `POST /client-app/register` z poprawnym hasłem (np. `dwa13`) → skopiuj `key` z odpowiedzi.
+2. Kliknij **Authorize** w Swagger UI, wpisz `Bearer <key>`.
+3. Wywołaj `POST /mail/send` lub `GET /mail-log`.
