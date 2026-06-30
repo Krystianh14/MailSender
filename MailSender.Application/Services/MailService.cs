@@ -95,25 +95,27 @@ public class MailService
     }
 
     private string PrepareBody(string body)
+{
+    var result = body;
+
+    foreach (var student in _students)
     {
-        var result = body;
-
-        foreach (var student in _students)
+        if (string.IsNullOrWhiteSpace(student.Surname))
         {
-            if (string.IsNullOrWhiteSpace(student.Surname))
-            {
-                continue;
-            }
-
-            if (!result.Contains(student.Surname))
-            {
-                continue;
-            }
-
-            result = result.Replace(
-                student.Surname,$"{StudentSurnameMarker}{student.Surname}{StudentSurnameMarker}");
+            continue;
         }
 
-        return result;
+        if (!result.Contains(student.Surname))
+        {
+            continue;
+        }
+
+        result = result.Replace(
+            student.Surname,
+            $"{student.Surname}"
+        );
     }
+
+    return result;
+        }
 }
