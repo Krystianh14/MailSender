@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/MailSender.UnitTests/MailSender.UnitTests.csproj" />
+  </Folder>
   <Project Path="MailSender.Api/MailSender.Api.csproj" />
   <Project Path="MailSender.Application/MailSender.Application.csproj" />
   <Project Path="MailSender.Domain/MailSender.Domain.csproj" />
