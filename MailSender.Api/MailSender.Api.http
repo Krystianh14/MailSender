@@ -1,0 +1,29 @@
+@MailSender.Api_HostAddress = http://localhost:5235
+@JwtToken = TU_WKLEJ_TOKEN_Z_REJESTRACJI
+
+### Register client application
+POST {{MailSender.Api_HostAddress}}/client-app/register
+Content-Type: application/json
+
+{
+  "appId": "demo-app",
+  "appName": "Demo App",
+  "pass": "dwa13"
+}
+
+
+### Send email
+POST {{MailSender.Api_HostAddress}}/mail/send
+Content-Type: application/json
+Authorization: Bearer {{JwtToken}}
+
+{
+  "to": "test@example.com",
+  "subject": "Test message from MailSender?",
+  "body": "Hello, this is a test email sent from MailSender API."
+}
+
+
+### Get mail logs
+GET {{MailSender.Api_HostAddress}}/mail-log
+Authorization: Bearer {{JwtToken}}

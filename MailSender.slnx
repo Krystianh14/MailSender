@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="MailSender.Api/MailSender.Api.csproj" />
+  <Project Path="MailSender.Application/MailSender.Application.csproj" />
+  <Project Path="MailSender.Domain/MailSender.Domain.csproj" />
+  <Project Path="MailSender.Infrastructure/MailSender.Infrastructure.csproj" />
+</Solution>
