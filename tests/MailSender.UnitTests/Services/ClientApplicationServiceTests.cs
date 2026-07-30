@@ -239,12 +239,14 @@ public class ClientApplicationServiceTests
         await _repository
             .Received(1)
             .AddAsync(Arg.Is<ClientApplication>(application =>
+                application != null &&
                 application.AppId == request.AppId &&
                 application.AppName == request.AppName));
 
         _jwtTokenService
             .Received(1)
             .GenerateToken(Arg.Is<ClientApplication>(application =>
+                application != null &&
                 application.AppId == request.AppId &&
                 application.AppName == request.AppName));
     }
