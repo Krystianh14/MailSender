@@ -14,6 +14,7 @@ The project demonstrates a layered Clean Architecture approach, JWT-based authen
 - Successful and failed delivery logging
 - Swagger/OpenAPI documentation
 - Entity Framework Core repositories
+- Unit tests for business logic and application services
 - Demo WebClient generated from the OpenAPI specification
 
 ## Technology stack
@@ -25,6 +26,10 @@ The project demonstrates a layered Clean Architecture approach, JWT-based authen
 - JWT Bearer authentication
 - Swagger / OpenAPI
 - HttpClientFactory
+- xUnit
+- NSubstitute
+- FluentAssertions
+- Coverlet
 - Vite
 - JavaScript / TypeScript
 - `openapi-typescript-codegen`
@@ -39,6 +44,8 @@ MailSender/
 ├── MailSender.Application/      # Use cases, DTOs, interfaces and application services
 ├── MailSender.Domain/           # Domain entities
 ├── MailSender.Infrastructure/   # EF Core, repositories, JWT and email providers
+├── tests/
+│   └── MailSender.UnitTests/    # Unit tests for business logic and service behaviour
 └── WebClient/                   # Demo client generated from OpenAPI
 ```
 
@@ -58,6 +65,11 @@ MailSender.Application
 
 MailSender.Domain
 └── no project dependencies
+
+MailSender.UnitTests
+├── MailSender.Application
+├── MailSender.Domain
+└── MailSender.Infrastructure
 ```
 
 ## Request flow
@@ -296,7 +308,7 @@ Never commit real JWT signing keys, provider API keys, or local development sett
 
 ## Database
 
-The current version uses EF Core InMemory Database to keep local setup simple.
+The current version intentionally uses EF Core InMemory Database to simplify local development and unit testing.
 
 This means:
 
@@ -305,6 +317,58 @@ This means:
 - all stored data is lost after an application restart.
 
 Persistent PostgreSQL storage and EF Core migrations are planned improvements.
+
+## Automated tests
+
+The solution contains a dedicated unit test project:
+
+```text
+tests/
+└── MailSender.UnitTests/
+    ├── Registration/
+    │   └── RegistrationPasswordValidatorTests.cs
+    └── Services/
+        ├── ClientApplicationServiceTests.cs
+        ├── MailServiceTests.cs
+        └── MailLogServiceTests.cs
+```
+
+The current unit tests verify:
+
+- Registration password validation.
+- Client application registration scenarios.
+- Email processing rules.
+- Successful and failed email delivery.
+- Delivery log creation.
+- Mail log retrieval and mapping.
+- Isolation of delivery logs between client applications.
+
+### Test libraries
+
+- xUnit
+- NSubstitute
+- FluentAssertions
+- Coverlet
+
+### Run all tests
+
+```bash
+dotnet test
+```
+
+### Run only the unit test project
+
+```bash
+dotnet test tests/MailSender.UnitTests/MailSender.UnitTests.csproj
+```
+
+### Collect code coverage
+
+```bash
+dotnet test --collect:"XPlat Code Coverage"
+```
+
+Integration tests are planned as the next stage of the project.
 
 ## Testing with Swagger
 
