@@ -368,7 +368,32 @@ dotnet test tests/MailSender.UnitTests/MailSender.UnitTests.csproj
 dotnet test --collect:"XPlat Code Coverage"
 ```
 
-Integration tests are planned as the next stage of the project.
+### Integration tests
+
+`tests/MailSender.IntegrationTests` exercises HTTP routing, controllers, real application services,
+JWT authentication, EF Core repositories, and the InMemory database using `WebApplicationFactory<Program>`.
+
+Run the integration suite alone:
+
+```bash
+dotnet test tests/MailSender.IntegrationTests/MailSender.IntegrationTests.csproj
+```
+
+Each test creates and disposes its own factory. A factory keeps one database name across requests,
+while separate factories use distinct databases. Test-only configuration supplies the registration
+password, student data and JWT settings without relying on local development settings.
+Only `IMailSenderProvider` is replaced by a deterministic test provider that records delivery attempts
+and can simulate failure. No real emails are sent. Helpers register clients through HTTP and use
+the returned JWT; authentication, services and repositories are not mocked.
+
+The suite covers registration and duplicate rejection, database isolation, missing/malformed/tampered
+JWTs, unknown clients, missing mail fields, successful and failed delivery, message transformations,
+persisted logs, log ordering, and isolation between clients for both log routes.
+
+Scope limits: InMemory does not verify relational constraints, transactions or migrations. External
+provider HTTP contracts and delivery, concurrent registration races, token expiry/issuer/audience edge
+cases, and whitespace-only input error handling are not covered. Detailed processing rules remain in
+unit tests. The suite preserves the current API behavior rather than introducing new validation rules.
 
 ## Testing with Swagger
 
