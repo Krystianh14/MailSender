@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/tests/">
+    <Project Path="tests/MailSender.IntegrationTests/MailSender.IntegrationTests.csproj" />
     <Project Path="tests/MailSender.UnitTests/MailSender.UnitTests.csproj" />
   </Folder>
   <Project Path="MailSender.Api/MailSender.Api.csproj" />
